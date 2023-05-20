@@ -1,0 +1,25 @@
+.TopNavbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  background-color: #007bff;
+  padding: 1rem;
+}
+
+.TopNavbar h3 {
+  color: #fff;
+  margin: 0;
+}
+
+.TopNavbar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+}
+
+.TopNavbar li {
+  color: #fff;
+  margin-left: 1rem;
+  cursor: pointer;
+}

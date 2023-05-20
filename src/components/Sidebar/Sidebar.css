@@ -1,0 +1,26 @@
+.Sidebar {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  min-width: 200px;
+  min-height: 100vh;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.Sidebar h3 {
+  margin-bottom: 1rem;
+}
+
+.Sidebar ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.Sidebar li {
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.Sidebar li:hover {
+  background-color: #e9ecef;
+}

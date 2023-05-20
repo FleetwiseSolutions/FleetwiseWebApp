@@ -1,0 +1,25 @@
+.job-list {
+  margin: 1rem;
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #fff;
+  width: 300px;
+}
+
+.job-list-items {
+  height: 200px;
+  overflow-y: scroll;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+.job-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.job-item:last-child {
+  border-bottom: none;
+}

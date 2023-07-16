@@ -131,14 +131,38 @@ const JobModal = ({
       setInvoiced(selectedJob.invoiced);
     };
 
+      // Reset state variables when a new job is selected
+      setPreTrip(false);
+      setSafeJourneyPlan(false);
+
+      // Query Firestore for submitted forms of the selected job
+    console.log(selectedJob)
+      const unsubscribeForms = firestore
+          .collection(`companies/${company}/submittedForms`)
+          .where("job", "==", selectedJob.id)
+          .onSnapshot((snapshot) => {
+            snapshot.forEach((doc) => {
+              const form = doc.data();
+              console.log(form)
+              if (form.formTitle === 'Safe Journey Plan') {
+                setSafeJourneyPlan(true);
+              } else if (form.formTitle === 'Pre-Trip Check') {
+                setPreTrip(true);
+              }
+            });
+          });
+
     return () => {
       setInitialVariables();
       unsubscribeCustomers();
       unsubscribeEmployees();
       unsubscribeTrucks();
       unsubscribeTrailers();
+      unsubscribeForms();
     };
-  }, [company]);
+  }, []);
+
+
 
   const getNumberOfTrailers = () => {
     switch (trailerType) {

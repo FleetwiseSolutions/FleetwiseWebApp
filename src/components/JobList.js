@@ -44,6 +44,7 @@ const JobList = ({
       <div className="job-list-items">
         {filteredJobs.map((job) => (
           <div key={job.id} className="job-item">
+            <Button onClick={() => onJobClick(job)} style={{margin: "10px"}}>View</Button>
             {job.jobID}: {job.pickupDate} {job.customer}
             {latestRejection(job) && (
               <div className="job-item-rejection-details">
@@ -66,7 +67,7 @@ const JobList = ({
                   <Button onClick={() => handleReassign(job)}>Reassign</Button>
                 </span>
               )}
-            <Button onClick={() => onJobClick(job)}>View</Button>
+
             <hr></hr>
           </div>
         ))}

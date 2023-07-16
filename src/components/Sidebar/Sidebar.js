@@ -1,8 +1,9 @@
 // src/components/Sidebar.js
 import React from "react";
+import {Button} from 'react-bootstrap'
 import "./Sidebar.css";
 
-const Sidebar = ({ role, onButtonClick }) => {
+const Sidebar = ({ role, onButtonClick, close, showClose }) => {
   const renderButtons = () => {
     switch (role) {
       case "admin":
@@ -11,6 +12,8 @@ const Sidebar = ({ role, onButtonClick }) => {
             <li onClick={() => onButtonClick("addJob")}>Add Job</li>
             <li onClick={() => onButtonClick("addCustomer")}>Add Customer</li>
             <li onClick={() => onButtonClick("addVehicle")}>Add Vehicle</li>
+              <li onClick={() => onButtonClick("editEmployee")}>Update Driver</li>
+              <li onClick={() => onButtonClick("editVehicle")}>Update Vehicle</li>
             {/* Add more admin buttons here */}
           </>
         );
@@ -28,7 +31,12 @@ const Sidebar = ({ role, onButtonClick }) => {
 
   return (
     <div className="Sidebar">
-      <h3>Actions</h3>
+        {!showClose &&
+            <Button className="d-md-none" variant="primary" onClick={close}>
+                X
+            </Button>
+        }
+        <h3>Actions</h3>
       <ul>{renderButtons()}</ul>
     </div>
   );

@@ -25,3 +25,5 @@ yarn-error.log*
 
 /src/firebaseConfig.js
 /functions/
+/src/twilio.js
+/src/.env

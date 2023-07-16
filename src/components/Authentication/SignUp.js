@@ -5,6 +5,8 @@ import { Form, Button } from "react-bootstrap";
 import firebase from "firebase/compat/app";
 import "firebase/compat/auth";
 
+import './SignUp.css'
+
 const SignUp = () => {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
@@ -121,7 +123,6 @@ const SignUp = () => {
             bfmCertificationDate,
             bfmStartDate,
             bfmEndComments,
-            comments,
             medicalExpiryDate,
             policeExpiryDate,
             waFatigueExp,

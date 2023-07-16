@@ -76,15 +76,15 @@ const AddEmployeeForm = ({ onAddEmployee, companyName, show, onHide }) => {
         bfmCertificationDate,
         bfmStartDate,
         bfmEndComments,
-        comments,
         medicalExpiryDate,
         policeExpiryDate,
         waFatigueExp,
         workRightExp,
         workRightStatus,
         inductionDate,
+        roles: selectedRoles,
         comments,
-        company,
+        company: companyName,
       };
 
       await firestore
@@ -99,7 +99,7 @@ const AddEmployeeForm = ({ onAddEmployee, companyName, show, onHide }) => {
       await sendEmailFunction({
         email: email,
         companyName: companyName,
-        signUpUrl: `https://localhost:3000/signup?uid=${user.uid}&token=${tempPassword}`,
+        signUpUrl: `http://localhost:3000/signup?uid=${user.uid}&token=${tempPassword}`,
       });
 
       onAddEmployee(email);
@@ -140,20 +140,6 @@ const AddEmployeeForm = ({ onAddEmployee, companyName, show, onHide }) => {
                 }}
               >
                 Admin
-              </option>
-              <option
-                value="scheduler"
-                onClick={() => handleRoleClick("scheduler")}
-                style={{
-                  backgroundColor: selectedRoles.includes("scheduler")
-                    ? "#007bff"
-                    : "white",
-                  color: selectedRoles.includes("scheduler")
-                    ? "white"
-                    : "black",
-                }}
-              >
-                Scheduler
               </option>
               <option
                 value="driver"

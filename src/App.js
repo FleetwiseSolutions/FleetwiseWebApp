@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Login from "./components/Authentication/Login";
 import AddEmployeeForm from "./components/Forms/AddEmployeeForm";
+import UpdateEmployeeForm from "./components/Forms/UpdateEmployeeForm";
 import CustomerForm from "./components/Forms/CustomerForm";
 import VehicleForm from "./components/Forms/VehicleForm";
 import JobForm from "./components/Forms/JobForm";
-import { Button } from "react-bootstrap";
+import { Button, ButtonGroup, Alert } from "react-bootstrap";
 import SignUp from "./components/Authentication/SignUp";
 
 import TopNavbar from "./components/Sidebar/TopNavbar";
@@ -14,8 +15,11 @@ import Sidebar from "./components/Sidebar/Sidebar";
 import JobList from "./components/JobList";
 import JobModal from "./components/JobModal";
 
+import FormEditor from "./components/FormEditor/FormEditor"
+
 import "./App.css";
 import { auth, firestore } from "./firebaseConfig";
+import UpdateVehicleForm from "./components/Forms/UpdateVehicleForm";
 
 function App() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -28,7 +32,18 @@ function App() {
   const [showVehicleForm, setShowVehicleForm] = useState(false);
   const [showJobForm, setShowJobForm] = useState(false);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+  const [showUpdateEmployeeForm, setShowUpdateEmployeeForm] = useState(false);
+  const [showUpdateVehicleForm, setShowUpdateVehicleForm] = useState(false);
   const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
+
+  useEffect(() => {
+    const handleResize = () => setSidebarOpen(window.innerWidth > 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -78,9 +93,9 @@ function App() {
     return () => {
       unsubscribe();
     };
-  }, [loggedInUserId]);
+  }, [loggedIn]);
 
-  useEffect(() => {
+  const getJobs = ()=> {
     const savedUser = localStorage.getItem("loggedInUser");
     const savedCompany = localStorage.getItem("company");
 
@@ -99,14 +114,43 @@ function App() {
       querySnapshot.forEach((doc) => {
         jobList.push({ id: doc.id, ...doc.data() });
       });
-      console.log(jobList);
       setJobs(jobList);
-    });
-  }, []);
+      setLoading(false);
+  })
+  }
 
-  const handleLogin = () => {
+  useEffect(() => {
+  getJobs();
+  }, []);
+  const handleLogin = async () => {
+    console.log("BRUH")
+    const userId = auth.currentUser.uid;
     setLoggedIn(true);
-    setLoggedInUserId(auth.currentUser.uid);
+    setLoggedInUserId(userId);
+
+    try {
+      const userDoc = await firestore
+          .collection("users")
+          .doc(userId)
+          .get();
+
+      const userData = userDoc.data();
+      const userRoles = userData.roles || [];
+      const c = userData.company;
+
+      setRoles(userRoles);
+      setUser(userData);
+      setCompany(c);
+
+      localStorage.setItem("loggedInUser", JSON.stringify(userData));
+      localStorage.setItem("company", c);
+      localStorage.setItem("roles", JSON.stringify(userRoles));
+
+      // Fetch jobs after successful login
+      getJobs();
+    } catch (error) {
+      console.error("Error retrieving user roles:", error);
+    }
   };
 
   const handleLogout = async () => {
@@ -125,6 +169,7 @@ function App() {
   };
 
   const handleRoleSelect = (role) => {
+    getJobs()
     setSelectedRole(role);
   };
 
@@ -144,13 +189,21 @@ function App() {
 
       case "addEmployee":
         setShowEmployeeForm(true);
+        break;
+
+      case "editEmployee":
+        setShowUpdateEmployeeForm(true);
+        break;
+
+      case "editVehicle":
+        setShowUpdateVehicleForm(true);
+        break;
     }
   };
 
   const Company = () => {
     return (
       <div>
-        <h1>Company</h1>
         {showEmployeeForm && (
           <AddEmployeeForm
             onAddEmployee={(email) => {
@@ -166,11 +219,113 @@ function App() {
     );
   };
 
+  const Notifications = ({ employees, trucks }) => {
+    // Your utility functions
+    const calculateRemainingDays = (expiryDate) => {
+      // Check for invalid dates
+      if (isNaN(Date.parse(expiryDate))) {
+        return Infinity;
+      }
+
+      const today = new Date();
+      const expDate = new Date(expiryDate);
+
+      const diffTime = expDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    };
+
+    const getExpiryColor = (expiryDate) => {
+      const remainingDays = calculateRemainingDays(expiryDate);
+
+      if (remainingDays <= 0) {
+        return 'danger'; // For expired dates, return 'text-danger' for red color
+      } else if (remainingDays <= 14) {
+        return 'warning'; // For dates expiring in less than 14 days, return 'text-warning' for orange color
+      } else {
+        return 'dark'; // For dates expiring in more than 14 days, return 'text-dark' for default color
+      }
+    };
+
+    console.log(employees, trucks)
+
+    const expiryFields = [
+      { field: 'driverDemeritsExp', entity: 'employee', display:"Driver Demerits" },
+      { field: 'licenseExpiry', entity: 'employee', display: "License" },
+      { field: 'medicalExpiryDate', entity: 'employee', display: "Medical" },
+      { field: 'policeExpiryDate', entity: 'employee', display: "Police Check" },
+      { field: 'waFatigueExp', entity: 'employee', display: "WA Fatigue" },
+      { field: 'workRightExp', entity: 'employee', display: "Work Right" },
+      { field: 'regoExp', entity: 'truck', display: "Registration" },
+    ];
+
+    const createNotifications = () => {
+      const employeeNotifications = {};
+      const truckNotifications = [];
+
+      expiryFields.forEach(({ field, entity, display }) => {
+        const entities = entity === 'employee' ? employees : trucks;
+
+        entities.forEach((item, index) => {
+          const remainingDays = calculateRemainingDays(item[field]);
+
+          if (remainingDays <= 14) {
+            const alert = (
+                <Alert variant={getExpiryColor(item[field])} key={index}>
+                  {`${entity=="employee"? item.firstName: item.registration}'s ${display} 
+    ${remainingDays < 0 ? `expired ${Math.abs(remainingDays)} days ago` : `will expire in ${remainingDays} days.`}`}
+                </Alert>
+            );
+
+            if (entity === 'employee') {
+              const name = `${item.firstName} ${item.lastName}`;
+              if (!employeeNotifications[name]) {
+                employeeNotifications[name] = [];
+              }
+              employeeNotifications[name].push(alert);
+            } else {
+              truckNotifications.push(alert);
+            }
+          }
+        });
+      });
+
+      return { employeeNotifications, truckNotifications };
+    };
+
+    const { employeeNotifications, truckNotifications } = createNotifications();
+
+    return (
+        <div className="notifications">
+          <h2>Notifications</h2>
+          {Object.keys(employeeNotifications).map(name => (
+              <div key={name}>
+                <b>{name}</b>
+                {employeeNotifications[name]}
+                <hr />
+              </div>
+          ))}
+          {truckNotifications.map((alert, index) => (
+              <div key={index}>
+                {alert}
+                <hr />
+              </div>
+          ))}
+        </div>
+    );
+  };
+
   const Admin = () => {
     const [showModal, setShowModal] = React.useState(false);
     const [selectedJob, setSelectedJob] = React.useState(null);
     const [isEditing, setIsEditing] = React.useState(false);
-    const [drivers, setDrivers] = React.useState(false);
+    const [drivers, setDrivers] = React.useState([]);
+    const [vehicles, setVehicles] = React.useState([]);
+    const [selectedJobType, setSelectedJobType] = useState("active");
+
+    const handleJobTypeChange = (jobType) => {
+      setSelectedJobType(jobType);
+    }
 
     useEffect(() => {
       const unsubscribeEmployees = firestore
@@ -185,8 +340,20 @@ function App() {
           console.log(employeesData);
         });
 
+      const unsubscribeVehicles = firestore
+          .collection(`companies/${company}/vehicles`)
+          .onSnapshot((snapshot) => {
+            const vehicleData = [];
+            snapshot.forEach((doc) =>
+                vehicleData.push({ id: doc.id, ...doc.data() })
+            );
+            setVehicles(vehicleData);
+            console.log(vehicleData);
+          });
+
       return () => {
         unsubscribeEmployees();
+        unsubscribeVehicles();
       };
     }, []);
 
@@ -235,34 +402,86 @@ function App() {
     return (
       <div>
         <div className="admin-container">
-          <div className="left-column">
-            <JobList
-              jobs={jobs}
-              title={"Active Jobs"}
-              status="created"
-              onJobClick={handleJobClick}
-              reassignJob={handleReassignJob}
-              employees={drivers}
-            />
-            <JobList
-              jobs={jobs}
-              title={"Pending Jobs"}
-              status="billed"
-              onJobClick={handleJobClick}
-              reassignJob={handleReassignJob}
-              employees={drivers}
-            />
-          </div>
-          <div className="right-column">
-            <JobList
-              jobs={jobs}
-              title={"Closed Jobs"}
-              status="closed"
-              onJobClick={handleJobClick}
-              reassignJob={handleReassignJob}
-              employees={drivers}
-            />
-          </div>
+          <FormEditor company={company}/>
+          <div className="buffer"></div>
+          <ButtonGroup
+              aria-label="Job type"
+              horizontal
+              style={{maxHeight: '50px', overflow: 'auto', position: 'relative', zIndex: 0}}
+          >
+            <Button
+                variant={selectedJobType === "active" ? "warning" : "secondary"}
+                onClick={() => handleJobTypeChange("active")}
+            >
+              Active
+            </Button>
+            <Button
+                variant={selectedJobType === "pending" ? "warning" : "secondary"}
+                onClick={() => handleJobTypeChange("pending")}
+            >
+              Pending
+            </Button>
+            <Button
+                variant={selectedJobType === "closed" ? "warning" : "secondary"}
+                onClick={() => handleJobTypeChange("closed")}
+            >
+              Closed
+            </Button>
+            <Button
+                variant={selectedJobType === "notifications" ? "warning" : "secondary"}
+                onClick={() => handleJobTypeChange("notifications")}
+            >
+              Notifications
+            </Button>
+          </ButtonGroup>
+          <div className="buffer"></div>
+          {selectedJobType === "active" && (
+              <div className="column">
+                <JobList
+                    jobs={jobs}
+                    title={"Active Jobs"}
+                    status="created"
+                    onJobClick={handleJobClick}
+                    reassignJob={handleReassignJob}
+                    employees={drivers}
+                    className="list"
+                />
+              </div>
+          )}
+
+          {selectedJobType === "pending" && (
+              <div className="column">
+                <JobList
+                    jobs={jobs}
+                    title={"Pending Jobs"}
+                    status="billed"
+                    onJobClick={handleJobClick}
+                    reassignJob={handleReassignJob}
+                    employees={drivers}
+                    className="list"
+                />
+              </div>
+          )}
+
+          {selectedJobType === "closed" && (
+              <div className="column">
+                <JobList
+                    jobs={jobs}
+                    title={"Closed Jobs"}
+                    status="closed"
+                    onJobClick={handleJobClick}
+                    reassignJob={handleReassignJob}
+                    employees={drivers}
+                    className="list"
+                />
+              </div>
+          )}
+
+          {selectedJobType === "notifications" && (
+              <div className="column notifications">
+                <Notifications employees={drivers} trucks={vehicles} />
+              </div>
+          )}
         </div>
         <CustomerForm
           company={company}
@@ -290,18 +509,34 @@ function App() {
             setIsEditing={setIsEditing}
             company={company}
           />
+
         )}
+
+        {showUpdateEmployeeForm && (
+            <UpdateEmployeeForm
+                company={company}
+                show={showUpdateEmployeeForm}
+                onHide={() => setShowUpdateEmployeeForm(false)}
+            />
+        )}
+
+        {showUpdateVehicleForm && (
+            <UpdateVehicleForm
+                company={company}
+                show={showUpdateVehicleForm}
+                onHide={() => setShowUpdateVehicleForm(false)}
+            />
+        )}
+
       </div>
     );
   };
 
-  const Scheduler = () => {
-    return <div>Welcome, {user.email} - Scheduler</div>;
-  };
 
   const Driver = () => {
     return <div>Welcome, {user.email} - Driver</div>;
   };
+
 
   const renderRoleContent = () => {
     switch (selectedRole) {
@@ -309,55 +544,52 @@ function App() {
         return <Company />;
       case "admin":
         return <Admin />;
-      case "scheduler":
-        return <Scheduler />;
       case "driver":
         return <Driver />;
       default:
-        return <div>Please select a role from the sidebar</div>;
+        return (<div className="default"><div>Please select a role from the sidebar</div></div>);
     }
   };
 
   return (
-    <Router>
-      <div className="App">
-        <header className="App-header">
-          <Routes>
-            <Route path="/signup" element={<SignUp />} />
-            <Route
-              path="/"
-              element={
-                !loggedIn ? (
-                  <div>
-                    <h1>Login</h1>
-                    <Login onLogin={handleLogin} />
-                  </div>
-                ) : (
-                  <>
-                    <div className="App-content">
-                      <div className="App-navbar">
-                        <TopNavbar
-                          roles={roles}
-                          onRoleSelect={handleRoleSelect}
-                          onLogout={handleLogout}
-                        />
-                      </div>
-                      <div className="App-sidebar">
-                        <Sidebar
-                          role={selectedRole}
-                          onButtonClick={handleButtonClick}
-                        />
-                      </div>
-                      <div className="App-main">{renderRoleContent()}</div>
-                    </div>
-                  </>
-                )
-              }
-            />
-          </Routes>
-        </header>
-      </div>
-    </Router>
+      <Router>
+        <div className="App">
+          <header className="App-header">
+            <Routes>
+              <Route path="/signup" element={<SignUp />} />
+              <Route
+                  path="/"
+                  element={
+                    !loggedIn ? (
+                        <div>
+                          <Login onLogin={handleLogin} />
+                        </div>
+                    ) : (
+                        <div className="container-fluid App-content">
+                          <div className="App-navbar" style={{zIndex: 1}}>
+                            <TopNavbar roles={roles} onRoleSelect={handleRoleSelect} onLogout={handleLogout} noToggle={true} onSidebarShow={() => setShowSidebar(!showSidebar)}/>
+                          </div>
+                          <div className="row">
+                            <div className="col-12 col-lg-2">
+                              {showSidebar && (
+                                  <div className="App-sidebar d-md-block" style={{position: 'relative', zIndex: 1}}>
+                                    <Sidebar role={selectedRole} onButtonClick={handleButtonClick} close={() => setShowSidebar(false)}  noToggle={isSidebarOpen} />
+                                  </div>
+                              )}
+
+                            </div>
+                            <div className="App-main col-12 col-lg-10">
+                              {renderRoleContent()}
+                            </div>
+                          </div>
+                        </div>
+                    )
+                  }
+              />
+            </Routes>
+          </header>
+        </div>
+      </Router>
   );
 }
 

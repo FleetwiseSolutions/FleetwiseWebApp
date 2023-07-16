@@ -10,7 +10,8 @@ const JobForm = ({ company, show, onHide }) => {
   const [dropoff, setDropoff] = useState("");
   const [pickupDate, setPickupDate] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
-  const [deliveryType, setDeliveryType] = useState("");
+  const [deliveryType, setDeliveryType] = useState([]);
+  const [numberOfDrops, setNumberOfDrops] = useState("");
   const [trailerType, setTrailerType] = useState("");
   const [employee, setEmployee] = useState({});
   const [truck, setTruck] = useState("");
@@ -114,6 +115,7 @@ const JobForm = ({ company, show, onHide }) => {
         pickupDate,
         deliveryDate,
         deliveryType,
+        numberOfDrops,
         trailerType,
         driver: employee.id,
         truck,
@@ -145,7 +147,8 @@ const JobForm = ({ company, show, onHide }) => {
       setDropoff("");
       setPickupDate("");
       setDeliveryDate("");
-      setDeliveryType("");
+      setDeliveryType([]);
+      setNumberOfDrops("");
       setTrailerType("");
       setEmployee("");
       setTruck("");
@@ -172,6 +175,32 @@ const JobForm = ({ company, show, onHide }) => {
       console.error("Error adding job:", error);
     }
   };
+
+  const calculateRemainingDays = (expiryDate) => {
+    // Check for invalid dates
+    if (isNaN(Date.parse(expiryDate))) {
+      return Infinity;
+    }
+
+    const today = new Date();
+    const expDate = new Date(expiryDate);
+
+    const diffTime = expDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }
+
+  const getExpiryColor = (expiryDate) => {
+    const remainingDays = calculateRemainingDays(expiryDate);
+
+    if (remainingDays <= 0) {
+      return 'text-danger';
+    } else if (remainingDays <= 14) {
+      return 'text-warning';
+    } else {
+      return 'text-dark';
+    }
+  }
 
   const getNumberOfTrailers = () => {
     switch (trailerType) {
@@ -233,19 +262,39 @@ const JobForm = ({ company, show, onHide }) => {
             {getTrailerText(i)}
           </Dropdown.Toggle>
           <Dropdown.Menu>
-            {trailers.map((trailer) => (
-              <Dropdown.Item
-                key={trailer.registration}
-                eventKey={trailer.registration}
-              >
-                {trailer.registration}
-              </Dropdown.Item>
-            ))}
+            {trailers.map((tralier) => {
+              const color =
+                  calculateRemainingDays(tralier.regoExp) >= -1000
+                      ? getExpiryColor(calculateRemainingDays(tralier.regoExp))
+                      : 'text-dark';
+              return (
+                  <Dropdown.Item
+                      className={color}
+                      key={tralier.registration}
+                      eventKey={tralier.registration}
+                  >
+                    {tralier.registration}
+                  </Dropdown.Item>
+              );
+            })}
           </Dropdown.Menu>
         </Dropdown>
       </Form.Group>
     );
   }
+
+  const handleDeliveryTypeChange = (event) => {
+    const value = event.target.name;
+    const checked = event.target.checked;
+
+    setDeliveryType((prevDeliveryType) => {
+      if (checked) {
+        return [...prevDeliveryType, value];
+      } else {
+        return prevDeliveryType.filter((item) => item !== value);
+      }
+    });
+  };
 
   return (
     <Modal show={show} onHide={onHide}>
@@ -317,17 +366,38 @@ const JobForm = ({ company, show, onHide }) => {
           </Form.Group>
           <Form.Group>
             <Form.Label>Delivery Type</Form.Label>
-            <Dropdown onSelect={(e) => setDeliveryType(e)}>
-              <Dropdown.Toggle variant="outline-primary">
-                {deliveryType || "Select Delivery Type"}
-              </Dropdown.Toggle>
-              <Dropdown.Menu>
-                <Dropdown.Item eventKey="D2D">D2D</Dropdown.Item>
-                <Dropdown.Item eventKey="C2C">C2C</Dropdown.Item>
-                <Dropdown.Item eventKey="D2C">D2C</Dropdown.Item>
-                <Dropdown.Item eventKey="C2D">C2D</Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
+            <Form.Check
+                type="checkbox"
+                label="D2D"
+                name="D2D"
+                checked={deliveryType.includes("D2D")}
+                onChange={handleDeliveryTypeChange} />
+            <Form.Check
+                type="checkbox"
+                label="C2C"
+                name="C2C"
+                checked={deliveryType.includes("C2C")}
+                onChange={handleDeliveryTypeChange} />
+            <Form.Check
+                type="checkbox"
+                label="D2C"
+                name="D2C"
+                checked={deliveryType.includes("D2C")}
+                onChange={handleDeliveryTypeChange} />
+            <Form.Check
+                type="checkbox"
+                label="C2D"
+                name="C2D"
+                checked={deliveryType.includes("C2D")}
+                onChange={handleDeliveryTypeChange} />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Number of Drops</Form.Label>
+            <Form.Control
+                type="number"
+                value={numberOfDrops}
+                onChange={(e) => setNumberOfDrops(e.target.value)}
+            />
           </Form.Group>
           <Form.Group>
             <Form.Label>Trailer Type</Form.Label>
@@ -359,18 +429,41 @@ const JobForm = ({ company, show, onHide }) => {
                     ${employee.middleName} ${employee.lastName}`}
               </Dropdown.Toggle>
               <Dropdown.Menu>
-                {employees.map((employee) => (
-                  <Dropdown.Item
-                    key={`${employee.firstName}${
-                      employee.middleName ? " " : ""
-                    }${employee.middleName} ${employee.lastName}`}
-                    eventKey={JSON.stringify(employee)}
-                  >
-                    {employee.firstName}
-                    {employee.middleName ? " " : ""}
-                    {employee.middleName} {employee.lastName}
-                  </Dropdown.Item>
-                ))}
+                {employees.map((employee) => {
+                  const color =
+                      Math.min(
+                          calculateRemainingDays(employee.driverDemeritsExp),
+                          calculateRemainingDays(employee.licenseExpiry),
+                          calculateRemainingDays(employee.medicalExpiryDate),
+                          calculateRemainingDays(employee.policeExpiryDate),
+                          calculateRemainingDays(employee.waFatigueExp),
+                          calculateRemainingDays(employee.workRightExp)
+                      ) >= -1000
+                          ? getExpiryColor(
+                              Math.min(
+                                  calculateRemainingDays(employee.driverDemeritsExp),
+                                  calculateRemainingDays(employee.licenseExpiry),
+                                  calculateRemainingDays(employee.medicalExpiryDate),
+                                  calculateRemainingDays(employee.policeExpiryDate),
+                                  calculateRemainingDays(employee.waFatigueExp),
+                                  calculateRemainingDays(employee.workRightExp)
+                              )
+                          )
+                          : 'text-dark';
+                  return (
+                      <Dropdown.Item
+                          className={color}
+                          key={`${employee.firstName}${
+                              employee.middleName ? " " : ""
+                          }${employee.middleName} ${employee.lastName}`}
+                          eventKey={JSON.stringify(employee)}
+                      >
+                        {employee.firstName}
+                        {employee.middleName ? " " : ""}
+                        {employee.middleName} {employee.lastName}
+                      </Dropdown.Item>
+                  );
+                })}
               </Dropdown.Menu>
             </Dropdown>
           </Form.Group>
@@ -381,14 +474,21 @@ const JobForm = ({ company, show, onHide }) => {
                 {truck || "Select Truck"}
               </Dropdown.Toggle>
               <Dropdown.Menu>
-                {trucks.map((truck) => (
-                  <Dropdown.Item
-                    key={truck.registration}
-                    eventKey={truck.registration}
-                  >
-                    {truck.registration}
-                  </Dropdown.Item>
-                ))}
+                {trucks.map((truck) => {
+                  const color =
+                      calculateRemainingDays(truck.regoExp) >= -1000
+                          ? getExpiryColor(calculateRemainingDays(truck.regoExp))
+                          : 'text-dark';
+                  return (
+                      <Dropdown.Item
+                          className={color}
+                          key={truck.registration}
+                          eventKey={truck.registration}
+                      >
+                        {truck.registration}
+                      </Dropdown.Item>
+                  );
+                })}
               </Dropdown.Menu>
             </Dropdown>
           </Form.Group>
